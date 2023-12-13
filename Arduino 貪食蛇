@@ -1,0 +1,247 @@
+#include <SPI.h> //LEDmatrix
+#include<Wire.h>
+#include<LiquidCrystal_PCF8574.h>
+
+
+byte sym[8]={  
+  B00001000,B00001000,B00001000,B00001000,
+  B00001000,B00001000,B00001000,B00001000
+};/*int ptmp[10][10]={        
+      { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},        
+      { 0,-1, 4,-1,-1,-1,-1,-1,-1, 0},        
+      { 0,-1,3,-1,-1,-1,-1,-1,-1,  0},        
+      { 0,-1,2,-1,-1,-1,-1,-1,-1, 0},        
+      { 0,-1,1,-1,-1,-1,-1,-1,-1, 0},        
+      { 0,-1,-1,-1,-1,-1,-2,-1,-1, 0},       
+      { 0,-1,-1,-1,-1, 0,-1,-1,-1, 0},        
+      { 0,-1,-1,-1,-1,-1,-1,-1,-1, 0},        
+      { 0,-1,-1,-1,-1,-1,-1,-1,-1, 0},        
+      { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}      
+      };
+      
+      0   邊界
+      -1  空格
+      -2  fruit
+      >=1 蛇
+      1   頭
+      最大值 尾巴
+*/
+LiquidCrystal_PCF8574 lcd(0x27);
+int score;
+int maxscore = 0;
+void max7219(int reg, int data) { //LEDmatrix DIN>11,CS>10,CLK>13  
+  digitalWrite(SS,0);//SS=10  
+  SPI.transfer(reg);   
+  SPI.transfer(data);   
+  digitalWrite(SS,1);  
+  /* reg 1到8 排led     
+  max7219(9,0);//解碼0    
+  max7219(10,0); //亮度0    
+  max7219(11,7); //顯示幾排7    
+  max7219(12,1);//測試0關燈1正常    
+  max7219(15,0);//測試1全亮0正常 */
+}
+void lcdprint(){
+  lcd.clear();
+  lcd.setCursor(0,0);
+  lcd.print("score:");
+  lcd.print(score);
+  lcd.setCursor(0,1);
+  lcd.print("maxscore:");
+  lcd.print(maxscore);
+}
+void setup() {  // put your setup code here, to run once:  
+  Serial.begin(9600);
+  pinMode(2,INPUT);  
+  pinMode(3,INPUT);  
+  pinMode(4,INPUT);  
+  pinMode(5,INPUT);  
+  SPI.begin();    
+  max7219(9,0);//解碼0  
+  max7219(10,3); //亮度0  
+  max7219(11,7); //顯示幾排7  
+  max7219(12,1);//測試0關燈1正常  
+  max7219(15,0);//測試1全亮0正常
+  lcd.begin(16,2);
+}
+
+
+void loop() {
+  lcd.setBacklight(255);
+  lcd.home();
+  int t = 0;
+  int spd = 800;
+  score = 0;
+  char dir = 3;  
+  char newdir = 3;//新方向    
+  char mytop[2] = { 1, 2 };  
+  char myend[2] = { 1, 1 };
+  int mymap[10][10] = {0};    
+  for (int i = 0; i < 10; i++) {    
+    for (int j = 0; j < 10; j++) {      
+      if (i == 0 || i == 9 || j == 0 || j == 9) {        
+        mymap[i][j] = 0;      
+      }      
+      else {        
+        mymap[i][j] = -1;      
+      }    
+    }  
+  }  
+  while (true){    
+    char r1 = rand()%10;    
+    char r2 = rand()%10;    
+    if (mymap[r1][r2] == -1){      
+      mymap[r1][r2] = -2;      
+      break;    
+    }  
+  }
+  mymap[1][2] = 1;
+  mymap[1][1] = 2;
+  for(int i=1;i<9;i++){        
+    int maptmp=0;        
+    for(int j=1;j<9;j++){          
+      if(mymap[i][j] != -1 ){            
+        maptmp = (maptmp+1) * 2;          
+      }          
+      else{            
+        maptmp = maptmp * 2;          
+      }        
+    }        
+    maptmp/=2;        
+    sym[i-1]=maptmp;      
+  }             
+  for(byte i=0; i<8; i++) {        
+    max7219(i+1, sym[i]);      
+  }
+  bool start = false;
+  lcd.clear();
+  lcd.setCursor(0,0);
+  lcd.print("press w start");
+  lcd.setCursor(0,1);
+  lcd.print("maxscore:");
+  lcd.print(maxscore);
+  while(!start){
+    start = digitalRead(2);  
+  }
+  lcdprint();
+  start = true;
+  while(start){    
+    for(int i=0;i < spd;i++){      
+      bool W =digitalRead(2);     
+      bool S =digitalRead(3);      
+      bool A =digitalRead(4);      
+      bool D =digitalRead(5);      
+      if(W) {       
+        Serial.println("up");       
+        newdir = 0;    
+      }        
+      if(S) {
+        Serial.println("down");         
+        newdir = 2;       
+      }      
+      if(A) {
+        Serial.println("left");         
+        newdir = 1;      
+      }       
+      if(D) {Serial.println("right");         
+        newdir = 3;      
+      }       
+      delay(1);    
+    }  
+    if (newdir % 2 != dir % 2) {      
+      dir = newdir;    
+    }         
+    switch (dir){    
+      case 0:     
+        mytop[1]++;            
+        break;    
+      case 1:      
+        mytop[0]--;      
+        break;    
+      case 2:      
+        mytop[1]--;      
+        break;    
+      case 3:    
+        mytop[0]++;            
+        break;    
+      default:      
+        break;    
+    }    
+    if (mymap[mytop[0]][mytop[1]] >= 0) {//endgame 
+      if(maxscore < score){
+        maxscore = score;  
+      }
+      lcdprint();
+      Serial.print("score:");     
+      Serial.println(score);
+      Serial.print("max score:");
+      Serial.println(maxscore);
+      delay(3000);
+      start = false;
+      break;    
+    }    
+    else if (mymap[mytop[0]][mytop[1]] == -2){ //eat fruit
+      t = 1; 
+      score++;
+      lcdprint();    
+      for (int i = 0; i < 10; i++) {        
+        for (int j = 0; j < 10; j++) {          
+          if (mymap[i][j] > 0) {            
+            mymap[i][j]++;          
+          }        
+        }      
+      }      
+      mymap[mytop[0]][mytop[1]] = 1;      
+      while (true){        
+        char r1 = rand() % 10;        
+        char r2 = rand() % 10;        
+        if (mymap[r1][r2] == -1){          
+          mymap[r1][r2] = -2;          
+          break;        
+        }      
+      }    
+    }    
+    else {//
+      for (int i = 0; i < 10; i++) {        
+        for (int j = 0; j < 10; j++) {          
+          if (mymap[i][j] > 0) {            
+            mymap[i][j]++;          
+          }        
+        }      
+      }     
+      mymap[mytop[0]][mytop[1]] = 1;      
+      mymap[myend[0]][myend[1]] = -1;      
+      int max = 1;     
+      for (int i = 0; i < 10; i++) {        
+        for (int j = 0; j < 10; j++) {          
+          if (mymap[i][j] > max) {            
+            max = mymap[i][j];           
+            myend[0] = i;            
+            myend[1] = j;          
+          }        
+        }      
+      } 
+    }
+    for(int i=1;i<9;i++){        
+      int maptmp=0;        
+      for(int j=1;j<9;j++){          
+        if(mymap[i][j] != -1 ){            
+          maptmp = (maptmp+1) * 2;          
+        }          
+        else{            
+          maptmp = maptmp * 2;          
+        }        
+      }        
+      maptmp/=2;        
+      sym[i-1]=maptmp;      
+    }             
+    for(byte i=0; i<8; i++) {        
+      max7219(i+1, sym[i]);      
+    }
+    if(score % 5 == 0 && spd > 200 && t){
+      spd -= 200; 
+      t = 0;
+    }                    
+    delay(1);  
+  }             
+}
