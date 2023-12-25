@@ -72,7 +72,7 @@ void setup(){
   lcd.print("WASD control!");
   lcd.setCursor(0,1);
   lcd.print("Press w start");
-  delay(300);
+  delay(3000);
 }
 void loop() {
   int t = 0;
@@ -204,7 +204,7 @@ void loop() {
       } 
     }
     Print_map();
-    if(score % 5 == 0 && spd > 200 && t){
+    if(score % 5 == 0 && spd > 400 && t){
       spd -= 200; 
       t = 0;
     }                    
