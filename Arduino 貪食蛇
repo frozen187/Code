@@ -26,8 +26,8 @@ void lcdprint(){//lcd顯示分數
 }
 void Draw_fruit(){//隨機畫水果在地圖上
   while (true){        
-    char r1 = random(0,9);;        
-    char r2 = random(0,9);;        
+    int r1 = random(0,9);;        
+    int r2 = random(0,9);;        
       if (mymap[r1][r2] == -1){          
       mymap[r1][r2] = -2;          
         break;        
